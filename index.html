@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CIP2MARC Studio v8.1 — 多國預行編目 (CIP) 擷圖 OCR 轉 MARC 21 工作台（含 Koha 942/952）</title>
+  <title>CIP2MARC Studio v8.2 — 多國預行編目 (CIP) 擷圖 OCR 轉 MARC 21 工作台（含放大鏡檢視 &amp; Koha 942/952）</title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Tesseract.js v5 CDN (純瀏覽器本地 OCR) -->
@@ -49,7 +49,7 @@
         </div>
         <div>
           <h1 class="text-base sm:text-lg font-bold text-slate-900 tracking-tight leading-tight">
-            CIP2MARC Studio <span class="text-xs font-semibold px-2 py-0.5 rounded bg-brand-100 text-brand-700 ml-1">v8.1 四大分類法(084/082/050/060)＋942/952 ($2分類法代碼) 公開版</span>
+            CIP2MARC Studio <span class="text-xs font-semibold px-2 py-0.5 rounded bg-brand-100 text-brand-700 ml-1">v8.2 放大鏡校對版＋四大分類法 &amp; 942/952 ($2)</span>
           </h1>
           <p class="text-xs text-slate-500 hidden sm:block">支援台灣國圖 ISBD 與馬來西亞／英美 AACR2 卡片式 CIP（繁中・簡中・英文 OCR）</p>
         </div>
@@ -70,6 +70,50 @@
   <div id="toastBanner" class="hidden fixed bottom-5 right-5 z-50 max-w-md bg-slate-900 text-white px-4 py-3 rounded-xl shadow-lg border border-slate-700 flex items-center gap-3 transition-all duration-300">
     <span id="toastIcon" class="text-emerald-400 shrink-0"></span>
     <p id="toastMessage" class="text-sm font-medium"></p>
+  </div>
+
+  <!-- 原圖高解析度放大檢視燈箱 (Lightbox Modal) -->
+  <div id="zoomModal" class="hidden fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-xs flex flex-col">
+    <!-- 燈箱頂部工具列 -->
+    <div class="bg-slate-900/95 border-b border-slate-800 px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3 text-slate-200 shrink-0">
+      <div class="flex items-center gap-2.5">
+        <span class="w-8 h-8 rounded-lg bg-brand-600 text-white flex items-center justify-center">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607zM10.5 7.5v6m3-3h-6" />
+          </svg>
+        </span>
+        <div>
+          <h3 class="text-sm font-bold text-white">CIP 原圖放大鏡校對模式</h3>
+          <p class="text-[11px] text-slate-400">可滾輪縮放或拖曳移動圖片檢視細節，按 <kbd class="px-1 py-0.2 bg-slate-800 border border-slate-700 rounded text-[10px]">Esc</kbd> 或右上角關閉</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button id="btnZoomOut" type="button" class="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition cursor-pointer" title="縮小 (-)">
+          － 縮小
+        </button>
+        <span id="zoomScaleBadge" class="px-2.5 py-1 rounded-md bg-slate-800 text-emerald-300 font-mono text-xs font-bold min-w-[60px] text-center">
+          150%
+        </span>
+        <button id="btnZoomIn" type="button" class="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition cursor-pointer" title="放大 (+)">
+          ＋ 放大
+        </button>
+        <button id="btnZoomReset" type="button" class="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition cursor-pointer">
+          重設 (100%)
+        </button>
+        <button id="btnCloseZoomModal" type="button" class="ml-2 inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-rose-600 hover:bg-rose-500 text-white transition cursor-pointer">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+          關閉
+        </button>
+      </div>
+    </div>
+
+    <!-- 燈箱圖片可捲動/拖曳檢視區 -->
+    <div id="zoomViewport" class="flex-1 overflow-auto flex items-center justify-center p-6 cursor-grab active:cursor-grabbing select-none">
+      <img id="zoomModalImage" src="" alt="CIP 高解析度放大檢視" draggable="false" class="max-w-none rounded-lg shadow-2xl bg-white transition-transform duration-100 origin-center" />
+    </div>
   </div>
 
   <!-- 主要內容區 -->
@@ -107,8 +151,25 @@
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
         <!-- 左側：圖片上傳與預覽區 -->
         <div class="lg:col-span-5 flex flex-col gap-3">
-          <div id="dropZone" class="border-2 border-dashed border-slate-300 hover:border-brand-500 bg-slate-50/70 hover:bg-brand-50/30 rounded-xl p-5 text-center cursor-pointer transition-all flex flex-col items-center justify-center min-h-[220px] relative overflow-hidden">
+          <div id="dropZone" class="border-2 border-dashed border-slate-300 hover:border-brand-500 bg-slate-50/70 hover:bg-brand-50/30 rounded-xl p-5 text-center cursor-pointer transition-all flex flex-col items-center justify-center min-h-[230px] relative overflow-hidden group">
             <input type="file" id="imageInput" accept="image/*" class="hidden" />
+
+            <!-- 放大鏡懸浮工具按鈕群（有圖片時顯示） -->
+            <div id="previewToolbar" class="hidden absolute top-2.5 right-2.5 z-20 flex items-center gap-1.5">
+              <button id="btnToggleLoupe" type="button" class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-900/85 text-white hover:bg-brand-600 shadow-md backdrop-blur-xs transition cursor-pointer" title="開啟局部跟隨放大鏡">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+                </svg>
+                <span>跟隨放大鏡</span>
+              </button>
+              <button id="btnOpenZoomModal" type="button" class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-brand-600 text-white hover:bg-brand-700 shadow-md transition cursor-pointer" title="全螢幕放大檢視原圖細節">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607zM10.5 7.5v6m3-3h-6" />
+                </svg>
+                <span>放大檢視</span>
+              </button>
+            </div>
+
             <div id="uploadPlaceholder" class="space-y-2">
               <div class="w-12 h-12 rounded-full bg-white border border-slate-200 shadow-xs mx-auto flex items-center justify-center text-slate-400">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
@@ -118,13 +179,20 @@
               <p class="text-sm font-semibold text-slate-700">點擊上傳、拖曳或貼上 CIP 圖片</p>
               <p class="text-xs text-slate-400">自動支援台灣國圖格式與馬來西亞／英美卡片式 CIP 格式</p>
             </div>
-            <div id="previewWrapper" class="hidden relative inline-block select-none">
+
+            <div id="previewWrapper" class="hidden relative inline-block select-none mt-5">
               <img id="previewImage" src="" alt="CIP 預覽" draggable="false" class="max-h-[280px] w-auto object-contain rounded-lg shadow-xs block" />
+              <!-- 局部跟隨放大鏡圓形鏡片 -->
+              <div id="loupeLens" class="hidden pointer-events-none absolute w-40 h-40 rounded-full border-4 border-brand-500 shadow-2xl bg-no-repeat z-30"></div>
+              <!-- 手動框選裁切遮罩 -->
               <div id="manualCropOverlay" class="hidden absolute border-2 border-brand-500 bg-brand-500/15 pointer-events-none rounded-xs">
                 <span class="absolute -top-5 left-0 bg-brand-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-t">鎖定此 CIP 框</span>
               </div>
             </div>
-            <p id="cropHintText" class="hidden text-[11px] text-slate-500 mt-1.5">提示：若同頁有多個 CIP，系統預設只取第一個框；您也可以直接在圖片上<span class="font-semibold text-brand-700">按住滑鼠拖曳框選</span>指定要辨識的那一個 CIP。</p>
+
+            <p id="cropHintText" class="hidden text-[11px] text-slate-500 mt-2">
+              提示：點右上角「放大檢視」可全螢幕無段縮放校對；或直接在圖片上<span class="font-semibold text-brand-700">按住滑鼠拖曳框選</span>指定 CIP 區域。
+            </p>
           </div>
 
           <!-- 影像前處理與執行 OCR 控制列 -->
@@ -167,7 +235,7 @@
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
             </svg>
             <div>
-              <span class="font-bold">人工校對提醒：</span>OCR 光學辨識並非萬能（易受印刷模糊、特殊罕見字、手寫註記或排版干擾），<span class="underline decoration-amber-400 font-semibold">若有解讀不到或辨識錯誤的文字，煩請人工辨識並直接於下方文字框或編目欄位中修正</span>後再行匯出。
+              <span class="font-bold">人工校對提醒：</span>OCR 光學辨識並非萬能（易受印刷模糊、特殊罕見字、手寫註記或排版干擾），<span class="underline decoration-amber-400 font-semibold">若有解讀不到或辨識錯誤的文字，可點擊左側圖片右上角「放大檢視」或「跟隨放大鏡」看清原字並直接修正</span>後再行匯出。
             </div>
           </div>
 
@@ -459,6 +527,8 @@
     const state = {
       currentImageDataUrl: null,
       manualCropRect: null, // { xRatio, yRatio, wRatio, hRatio }
+      loupeActive: false,
+      zoomScale: 1.5,
       holdings: [
         {
           barcode: '',
@@ -1532,9 +1602,69 @@
 
     /**
      * =========================================================================
-     * 6. 範例載入與事件監聽初始化
+     * 6. 放大鏡校對工具（全螢幕無段縮放燈箱 + 局部跟隨放大鏡）
      * =========================================================================
      */
+    function applyModalZoom(newScale) {
+      state.zoomScale = Math.max(0.5, Math.min(5.0, newScale));
+      const modalImg = document.getElementById('zoomModalImage');
+      const badge = document.getElementById('zoomScaleBadge');
+      modalImg.style.transform = `scale(${state.zoomScale})`;
+      badge.textContent = `${Math.round(state.zoomScale * 100)}%`;
+    }
+
+    function openZoomModal() {
+      if (!state.currentImageDataUrl) return;
+      const modal = document.getElementById('zoomModal');
+      const modalImg = document.getElementById('zoomModalImage');
+      modalImg.src = state.currentImageDataUrl;
+      modal.classList.remove('hidden');
+      applyModalZoom(1.5);
+    }
+
+    function closeZoomModal() {
+      document.getElementById('zoomModal').classList.add('hidden');
+    }
+
+    function toggleLoupeMode(forceState) {
+      state.loupeActive = typeof forceState === 'boolean' ? forceState : !state.loupeActive;
+      const btn = document.getElementById('btnToggleLoupe');
+      const lens = document.getElementById('loupeLens');
+      const previewImg = document.getElementById('previewImage');
+
+      if (state.loupeActive) {
+        btn.classList.remove('bg-slate-900/85');
+        btn.classList.add('bg-emerald-600', 'ring-2', 'ring-emerald-300');
+        btn.querySelector('span').textContent = '放大鏡：開啟中';
+        previewImg.style.cursor = 'zoom-in';
+        showToast('已開啟跟隨放大鏡：將滑鼠移到預覽圖上即可局部放大 2.6 倍檢視細節。');
+      } else {
+        btn.classList.add('bg-slate-900/85');
+        btn.classList.remove('bg-emerald-600', 'ring-2', 'ring-emerald-300');
+        btn.querySelector('span').textContent = '跟隨放大鏡';
+        lens.classList.add('hidden');
+        previewImg.style.cursor = 'crosshair';
+      }
+    }
+
+    /**
+     * =========================================================================
+     * 7. 範例載入與事件監聽初始化
+     * =========================================================================
+     */
+    function setPreviewImageUrl(dataUrl) {
+      state.currentImageDataUrl = dataUrl;
+      state.manualCropRect = null;
+      document.getElementById('manualCropOverlay').classList.add('hidden');
+      document.getElementById('uploadPlaceholder').classList.add('hidden');
+      document.getElementById('previewToolbar').classList.remove('hidden');
+      document.getElementById('previewWrapper').classList.remove('hidden');
+      document.getElementById('cropHintText').classList.remove('hidden');
+      const imgEl = document.getElementById('previewImage');
+      imgEl.src = dataUrl;
+      document.getElementById('btnRunOcr').disabled = false;
+    }
+
     function renderTextToPreviewCanvas(sampleText) {
       const lines = sampleText.split('\n');
       const canvas = document.createElement('canvas');
@@ -1553,16 +1683,7 @@
         ctx.fillText(line, 40, 58 + i * 31);
       });
 
-      const dataUrl = canvas.toDataURL('image/png');
-      state.currentImageDataUrl = dataUrl;
-      state.manualCropRect = null;
-      document.getElementById('manualCropOverlay').classList.add('hidden');
-      document.getElementById('uploadPlaceholder').classList.add('hidden');
-      document.getElementById('previewWrapper').classList.remove('hidden');
-      document.getElementById('cropHintText').classList.remove('hidden');
-      const imgEl = document.getElementById('previewImage');
-      imgEl.src = dataUrl;
-      document.getElementById('btnRunOcr').disabled = false;
+      setPreviewImageUrl(canvas.toDataURL('image/png'));
     }
 
     function loadDemoTwCip() {
@@ -1642,15 +1763,7 @@
       }
       const reader = new FileReader();
       reader.onload = (e) => {
-        state.currentImageDataUrl = e.target.result;
-        state.manualCropRect = null;
-        document.getElementById('manualCropOverlay').classList.add('hidden');
-        document.getElementById('uploadPlaceholder').classList.add('hidden');
-        document.getElementById('previewWrapper').classList.remove('hidden');
-        document.getElementById('cropHintText').classList.remove('hidden');
-        const imgEl = document.getElementById('previewImage');
-        imgEl.src = state.currentImageDataUrl;
-        document.getElementById('btnRunOcr').disabled = false;
+        setPreviewImageUrl(e.target.result);
         runOcrOnCurrentImage();
       };
       reader.readAsDataURL(file);
@@ -1663,17 +1776,106 @@
       const dropZone = document.getElementById('dropZone');
       const imageInput = document.getElementById('imageInput');
       const previewWrapper = document.getElementById('previewWrapper');
+      const previewToolbar = document.getElementById('previewToolbar');
+      const previewImage = document.getElementById('previewImage');
+      const loupeLens = document.getElementById('loupeLens');
       const manualOverlay = document.getElementById('manualCropOverlay');
 
+      // 點擊上傳區（排除工具列與圖片操作區）
       dropZone.addEventListener('click', (e) => {
-        if (previewWrapper.contains(e.target)) return;
+        if (previewWrapper.contains(e.target) || previewToolbar.contains(e.target)) return;
         imageInput.click();
       });
 
+      // 工具列按鈕事件：跟隨放大鏡 & 全螢幕燈箱放大檢視
+      document.getElementById('btnToggleLoupe').addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleLoupeMode();
+      });
+
+      document.getElementById('btnOpenZoomModal').addEventListener('click', (e) => {
+        e.stopPropagation();
+        openZoomModal();
+      });
+
+      // 雙擊預覽圖亦可直接開啟全螢幕放大檢視
+      previewWrapper.addEventListener('dblclick', (e) => {
+        e.stopPropagation();
+        openZoomModal();
+      });
+
+      // 燈箱內部縮放控制
+      document.getElementById('btnZoomIn').addEventListener('click', () => applyModalZoom(state.zoomScale + 0.35));
+      document.getElementById('btnZoomOut').addEventListener('click', () => applyModalZoom(state.zoomScale - 0.35));
+      document.getElementById('btnZoomReset').addEventListener('click', () => applyModalZoom(1.0));
+      document.getElementById('btnCloseZoomModal').addEventListener('click', closeZoomModal);
+
+      // 燈箱滑鼠滾輪縮放與拖曳平移
+      const zoomViewport = document.getElementById('zoomViewport');
+      zoomViewport.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const delta = e.deltaY < 0 ? 0.2 : -0.2;
+        applyModalZoom(state.zoomScale + delta);
+      }, { passive: false });
+
+      let isPanningZoom = false;
+      let panStartX = 0, panStartY = 0, scrollStartLeft = 0, scrollStartTop = 0;
+      zoomViewport.addEventListener('mousedown', (e) => {
+        isPanningZoom = true;
+        panStartX = e.clientX;
+        panStartY = e.clientY;
+        scrollStartLeft = zoomViewport.scrollLeft;
+        scrollStartTop = zoomViewport.scrollTop;
+      });
+      window.addEventListener('mousemove', (e) => {
+        if (!isPanningZoom) return;
+        zoomViewport.scrollLeft = scrollStartLeft - (e.clientX - panStartX);
+        zoomViewport.scrollTop = scrollStartTop - (e.clientY - panStartY);
+      });
+      window.addEventListener('mouseup', () => {
+        isPanningZoom = false;
+      });
+
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !document.getElementById('zoomModal').classList.contains('hidden')) {
+          closeZoomModal();
+        }
+      });
+
+      // 局部跟隨放大鏡滑鼠移動計算
+      previewWrapper.addEventListener('mousemove', (e) => {
+        if (!state.loupeActive || !state.currentImageDataUrl) return;
+        const rect = previewImage.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+
+        if (x < 0 || y < 0 || x > rect.width || y > rect.height) {
+          loupeLens.classList.add('hidden');
+          return;
+        }
+
+        const zoomFactor = 2.6;
+        const lensSize = 160; // w-40 = 160px
+        const half = lensSize / 2;
+
+        loupeLens.classList.remove('hidden');
+        loupeLens.style.left = `${x - half}px`;
+        loupeLens.style.top = `${y - half}px`;
+        loupeLens.style.backgroundImage = `url("${state.currentImageDataUrl}")`;
+        loupeLens.style.backgroundSize = `${rect.width * zoomFactor}px ${rect.height * zoomFactor}px`;
+        loupeLens.style.backgroundPosition = `${-(x * zoomFactor - half)}px ${-(y * zoomFactor - half)}px`;
+      });
+
+      previewWrapper.addEventListener('mouseleave', () => {
+        loupeLens.classList.add('hidden');
+      });
+
+      // 手動拖曳框選單一 CIP（僅在非跟隨放大鏡模式下啟用）
       let isDraggingCrop = false;
       let startX = 0, startY = 0;
       previewWrapper.addEventListener('mousedown', (e) => {
         e.stopPropagation();
+        if (state.loupeActive) return;
         const rect = previewWrapper.getBoundingClientRect();
         isDraggingCrop = true;
         startX = e.clientX - rect.left;
