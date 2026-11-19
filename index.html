@@ -385,7 +385,7 @@
               <span class="px-2 py-0.5 rounded bg-brand-600 text-white font-mono text-xs">952</span>
               實體館藏段明細（支援一書多冊／多複本）
             </h3>
-            <p class="text-xs text-slate-500 mt-0.5">每新增一筆館藏列，匯出時即會自動產生對應的 <code class="text-slate-700">=952</code> 館藏欄位（含 <code class="text-slate-700">$a</code>、<code class="text-slate-700">$b</code>、<code class="text-slate-700">$c</code>、<code class="text-slate-700">$o</code> 索書號、<code class="text-slate-700">$p</code> 條碼、<code class="text-slate-700">$y</code>、<code class="text-slate-700">$2</code> 分類法代碼與 <code class="text-slate-700">$8</code> 館藏代碼）。</p>
+            <p class="text-xs text-slate-500 mt-0.5">每新增一筆館藏列，匯出時即會自動產生對應的 <code class="text-slate-700">=952</code> 館藏欄位（含 <code class="text-slate-700">$a</code>、<code class="text-slate-700">$b</code>、<code class="text-slate-700">$c</code>、<code class="text-slate-700">$h</code> 部冊號、<code class="text-slate-700">$o</code> 索書號、<code class="text-slate-700">$p</code> 條碼、<code class="text-slate-700">$t</code> 複本號、<code class="text-slate-700">$y</code>、<code class="text-slate-700">$2</code> 分類法代碼與 <code class="text-slate-700">$8</code> 館藏代碼）。</p>
           </div>
           <button id="btnAddHolding" type="button" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white text-brand-700 border border-brand-300 hover:bg-brand-50 transition shadow-2xs cursor-pointer">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
@@ -396,7 +396,7 @@
         </div>
 
         <div class="overflow-x-auto">
-          <table class="w-full text-left border-collapse text-xs min-w-[920px]">
+          <table class="w-full text-left border-collapse text-xs min-w-[1060px]">
             <thead>
               <tr class="border-b border-slate-200 text-slate-600 font-semibold">
                 <th class="py-2 px-2">登錄號 / 條碼 ($p)</th>
@@ -406,6 +406,8 @@
                 <th class="py-2 px-2">館藏代碼 ($8)</th>
                 <th class="py-2 px-2">館藏類型 ($y)</th>
                 <th class="py-2 px-2">索書號 ($o，留空自動帶入)</th>
+                <th class="py-2 px-2">部冊號 ($h)</th>
+                <th class="py-2 px-2">複本號 ($t)</th>
                 <th class="py-2 px-2">分類法 ($2)</th>
                 <th class="py-2 px-2">價格 ($g)</th>
                 <th class="py-2 px-2 text-center">操作</th>
@@ -563,6 +565,8 @@
           collectionCode: '',
           itemType: 'BK',
           callNumber: '',
+          volume: '',
+          copyNumber: '',
           classSource: '', // 留空時自動跟隨 942 $2 / 分類法選擇
           price: ''
         }
@@ -1227,6 +1231,12 @@
             <input type="text" data-idx="${idx}" data-field="callNumber" value="${escapeHtml(h.callNumber)}" placeholder="自動帶入分類號" class="holding-input font-mono w-28 px-2 py-1.5 rounded border border-slate-300 bg-white focus:border-brand-500 focus:outline-none" />
           </td>
           <td class="py-1.5 px-2">
+            <input type="text" data-idx="${idx}" data-field="volume" value="${escapeHtml(h.volume)}" placeholder="例如：v.1" class="holding-input font-mono w-20 px-2 py-1.5 rounded border border-slate-300 bg-white focus:border-brand-500 focus:outline-none" />
+          </td>
+          <td class="py-1.5 px-2">
+            <input type="text" data-idx="${idx}" data-field="copyNumber" value="${escapeHtml(h.copyNumber)}" placeholder="例如：c.1" class="holding-input font-mono w-16 px-2 py-1.5 rounded border border-slate-300 bg-white focus:border-brand-500 focus:outline-none" />
+          </td>
+          <td class="py-1.5 px-2">
             <input type="text" data-idx="${idx}" data-field="classSource" value="${escapeHtml(h.classSource)}" placeholder="${escapeHtml(defaultClassSource)}" class="holding-input font-mono w-16 px-2 py-1.5 rounded border border-slate-300 bg-white focus:border-brand-500 focus:outline-none" />
           </td>
           <td class="py-1.5 px-2">
@@ -1262,6 +1272,8 @@
           collectionCode: '',
           itemType: 'BK',
           callNumber: '',
+          volume: '',
+          copyNumber: '',
           classSource: '',
           price: ''
         };
@@ -1450,7 +1462,7 @@
         lines.push(f942);
       }
 
-      // 952 館藏段 (支援多筆複本，含 $c 館藏位置、$o 索書號、$2 分類法代碼與 $8 館藏代碼)
+      // 952 館藏段 (支援多筆複本，含 $c 館藏位置、$h 部冊號、$o 索書號、$t 複本號、$2 分類法代碼與 $8 館藏代碼)
       for (const h of state.holdings) {
         const bc = cleanStr(h.barcode);
         const hb = cleanStr(h.homeBranch);
@@ -1459,17 +1471,21 @@
         const ccode = cleanStr(h.collectionCode);
         const it = cleanStr(h.itemType);
         const cn = cleanStr(h.callNumber) || callNum;
+        const vol = cleanStr(h.volume);
+        const copyNum = cleanStr(h.copyNumber);
         const cs = cleanStr(h.classSource) || f942_2;
         const pr = cleanStr(h.price);
 
-        if (bc || hb || cb || loc || ccode || cn || pr) {
+        if (bc || hb || cb || loc || ccode || cn || vol || copyNum || pr) {
           let f952 = '=952  \\\\';
           if (hb) f952 += `$a${hb}`;
           if (cb) f952 += `$b${cb}`;
           if (loc) f952 += `$c${loc}`;
           if (pr) f952 += `$g${pr}`;
+          if (vol) f952 += `$h${vol}`;
           if (cn) f952 += `$o${cn}`;
           if (bc) f952 += `$p${bc}`;
+          if (copyNum) f952 += `$t${copyNum}`;
           if (it) f952 += `$y${it}`;
           if (cs) f952 += `$2${cs}`;
           if (ccode) f952 += `$8${ccode}`;
@@ -2201,6 +2217,7 @@
           location: '',
           collectionCode: '',
           itemType: 'BK',
+          volume: '',
           classSource: '',
           price: ''
         };
@@ -2212,6 +2229,8 @@
           collectionCode: last.collectionCode,
           itemType: last.itemType,
           callNumber: '',
+          volume: last.volume,
+          copyNumber: '',
           classSource: last.classSource,
           price: last.price
         });
