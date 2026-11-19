@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CIP2MARC Studio v8.2 — 多國預行編目 (CIP) 擷圖 OCR 轉 MARC 21 工作台（含放大鏡檢視 &amp; Koha 942/952）</title>
+  <title>CIP2MARC Studio v8.4 — 多國預行編目 (CIP) 擷圖 OCR 轉 MARC 21 工作台（含放大鏡檢視 &amp; Koha 942/952）</title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Tesseract.js v5 CDN (純瀏覽器本地 OCR) -->
@@ -49,7 +49,7 @@
         </div>
         <div>
           <h1 class="text-base sm:text-lg font-bold text-slate-900 tracking-tight leading-tight">
-            CIP2MARC Studio <span class="text-xs font-semibold px-2 py-0.5 rounded bg-brand-100 text-brand-700 ml-1">v8.2 放大鏡校對版＋四大分類法 &amp; 942/952 ($2)</span>
+            CIP2MARC Studio <span class="text-xs font-semibold px-2 py-0.5 rounded bg-brand-100 text-brand-700 ml-1">v8.4 放大鏡校對＋全站雲端統計＋四大分類法 &amp; 942/952 ($2)</span>
           </h1>
           <p class="text-xs text-slate-500 hidden sm:block">支援台灣國圖 ISBD 與馬來西亞／英美 AACR2 卡片式 CIP（繁中・簡中・英文 OCR）</p>
         </div>
@@ -497,6 +497,50 @@
 
   </main>
 
+  <!-- 服務使用統計區塊（置於頁尾上方，支援 Google Sheets 雲端全站統計 + 本機備援） -->
+  <section class="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-2 pb-6">
+    <div class="bg-slate-100/80 border border-slate-200/80 rounded-2xl py-6 px-4 text-center shadow-2xs relative">
+      <div class="flex items-center justify-center gap-2 mb-3">
+        <h3 class="text-base sm:text-lg font-bold text-slate-600 tracking-wide">服務使用統計</h3>
+        <span id="statSyncBadge" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-200/80 text-slate-600">
+          本機模式（未綁定試算表 API）
+        </span>
+      </div>
+
+      <div class="flex flex-wrap items-center justify-center gap-6 sm:gap-10 text-sm sm:text-base text-slate-600">
+        <div>
+          今日轉換次數：<span id="statTodayCount" class="font-bold text-xl sm:text-2xl text-blue-900 font-mono">0</span>
+        </div>
+        <div>
+          總轉換次數：<span id="statTotalCount" class="font-bold text-xl sm:text-2xl text-blue-900 font-mono">0</span>
+        </div>
+      </div>
+
+      <div class="mt-3 flex flex-wrap items-center justify-center gap-2 text-[11px] text-slate-400">
+        <span id="statModeHint">綁定 Google Apps Script 網址後，即可跨裝置同步全站所有使用者的「今日轉換次數」與「總轉換次數」</span>
+        <button id="btnToggleGasConfig" type="button" class="text-brand-600 hover:underline font-semibold cursor-pointer">
+          設定雲端試算表 API 網址
+        </button>
+      </div>
+
+      <!-- 可折疊的 Google Apps Script 網址快速設定面板 -->
+      <div id="gasConfigPanel" class="hidden max-w-2xl mx-auto mt-3 pt-3 border-t border-slate-200/80 text-left">
+        <label for="gasWebhookInput" class="block text-xs font-semibold text-slate-700 mb-1">
+          Google Apps Script 網頁應用程式網址（Web App URL，結尾通常為 <code class="text-slate-600">/exec</code>）：
+        </label>
+        <div class="flex flex-col sm:flex-row gap-2">
+          <input type="url" id="gasWebhookInput" placeholder="https://script.google.com/macros/s/您的部署ID/exec" class="flex-1 font-mono text-xs px-3 py-2 rounded-lg border border-slate-300 bg-white focus:border-brand-500 focus:outline-none" />
+          <button id="btnSaveGasUrl" type="button" class="px-3.5 py-2 rounded-lg text-xs font-semibold bg-brand-600 text-white hover:bg-brand-700 transition cursor-pointer shrink-0">
+            儲存並立即同步
+          </button>
+        </div>
+        <p class="text-[11px] text-slate-500 mt-1.5">
+          提示：若要讓所有開啟此 HTML 的訪客無需手動輸入就能直接連到您的試算表，也可以用記事本打開此 HTML，搜尋 <code class="bg-slate-200/70 px-1 rounded">DEFAULT_GAS_WEBAPP_URL</code> 並將網址貼入單引號內存檔即可。
+        </p>
+      </div>
+    </div>
+  </section>
+
   <footer class="border-t border-slate-200 bg-white mt-auto py-5">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-600 leading-relaxed">
       <p>
@@ -837,6 +881,7 @@
 
         document.getElementById('rawOcrText').value = cleanedText;
         parseCipTextToForm(cleanedText);
+        incrementConversionCount(1);
         showToast('CIP 圖片 OCR 辨識並解析完成！請核對下方欄位。');
       } catch (err) {
         console.error(err);
@@ -1769,7 +1814,184 @@
       reader.readAsDataURL(file);
     }
 
+
+    /**
+     * =========================================================================
+     * 8. 全站服務使用統計計數器 (Google Apps Script + Google 試算表雲端同步 / 本機備援)
+     * =========================================================================
+     */
+    // 【管理者設定區】部署好 Google Apps Script 後，可將您的 /exec 網址直接貼在下方單引號內，所有訪客開啟即自動連線：
+    const DEFAULT_GAS_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbxjKYVXDwnl9u8VHP_g0FsYFoPkUiXn4a6uHBCwgraQ8-rnWTlcM-pG91sg4R3iMdEr/exec';
+
+    const STATS_STORAGE_KEY = 'cip2marc_studio_usage_stats_v1';
+    const GAS_URL_STORAGE_KEY = 'cip2marc_studio_gas_webapp_url_v1';
+
+    function getActiveGasUrl() {
+      if (DEFAULT_GAS_WEBAPP_URL && DEFAULT_GAS_WEBAPP_URL.trim()) {
+        return DEFAULT_GAS_WEBAPP_URL.trim();
+      }
+      try {
+        return (localStorage.getItem(GAS_URL_STORAGE_KEY) || '').trim();
+      } catch (e) {
+        return '';
+      }
+    }
+
+    function getTodayDateKey() {
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = String(now.getMonth() + 1).padStart(2, '0');
+      const d = String(now.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    }
+
+    function loadLocalUsageStats() {
+      const todayKey = getTodayDateKey();
+      let stats = { date: todayKey, today: 0, total: 0 };
+      try {
+        const raw = localStorage.getItem(STATS_STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          stats.total = Number(parsed.total) || 0;
+          stats.today = parsed.date === todayKey ? (Number(parsed.today) || 0) : 0;
+          stats.date = todayKey;
+        }
+      } catch (e) {
+        // ignore
+      }
+      return stats;
+    }
+
+    function saveLocalUsageStats(stats) {
+      try {
+        localStorage.setItem(STATS_STORAGE_KEY, JSON.stringify({
+          date: getTodayDateKey(),
+          today: Number(stats.today) || 0,
+          total: Number(stats.total) || 0
+        }));
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    function renderUsageStats(stats, mode = 'local') {
+      const todayEl = document.getElementById('statTodayCount');
+      const totalEl = document.getElementById('statTotalCount');
+      const badgeEl = document.getElementById('statSyncBadge');
+      const hintEl = document.getElementById('statModeHint');
+
+      if (todayEl) todayEl.textContent = String(stats.today ?? 0);
+      if (totalEl) totalEl.textContent = String(stats.total ?? 0);
+
+      if (badgeEl) {
+        if (mode === 'cloud') {
+          badgeEl.className = 'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200';
+          badgeEl.textContent = '● 全站雲端即時同步中';
+          if (hintEl) hintEl.textContent = '已連線至 Google 試算表全站計數器（統計所有使用者累計次數）';
+        } else if (mode === 'syncing') {
+          badgeEl.className = 'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-brand-100 text-brand-700';
+          badgeEl.textContent = '↻ 正在同步雲端統計...';
+        } else {
+          badgeEl.className = 'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-200/80 text-slate-600';
+          badgeEl.textContent = '本機計數模式';
+          if (hintEl) hintEl.textContent = '綁定 Google Apps Script 網址後，即可跨裝置同步全站所有使用者的「今日轉換次數」與「總轉換次數」';
+        }
+      }
+    }
+
+    async function fetchCloudUsageStats() {
+      const localStats = loadLocalUsageStats();
+      const gasUrl = getActiveGasUrl();
+
+      if (!gasUrl) {
+        renderUsageStats(localStats, 'local');
+        return;
+      }
+
+      renderUsageStats(localStats, 'syncing');
+      try {
+        const sep = gasUrl.includes('?') ? '&' : '?';
+        const res = await fetch(`${gasUrl}${sep}action=get&_t=${Date.now()}`, {
+          method: 'GET',
+          redirect: 'follow'
+        });
+        const data = await res.json();
+        if (data && typeof data.total !== 'undefined') {
+          const cloudStats = {
+            date: getTodayDateKey(),
+            today: Number(data.today) || 0,
+            total: Number(data.total) || 0
+          };
+          saveLocalUsageStats(cloudStats);
+          renderUsageStats(cloudStats, 'cloud');
+          return;
+        }
+      } catch (err) {
+        console.warn('雲端計數讀取失敗，暫以本機快取顯示：', err);
+      }
+      renderUsageStats(localStats, 'local');
+    }
+
+    async function incrementConversionCount(step = 1) {
+      // 先即時更新畫面與本機快取，確保操作零延遲
+      const localStats = loadLocalUsageStats();
+      localStats.today += step;
+      localStats.total += step;
+      saveLocalUsageStats(localStats);
+
+      const gasUrl = getActiveGasUrl();
+      if (!gasUrl) {
+        renderUsageStats(localStats, 'local');
+        return;
+      }
+
+      renderUsageStats(localStats, 'syncing');
+      try {
+        const sep = gasUrl.includes('?') ? '&' : '?';
+        const res = await fetch(`${gasUrl}${sep}action=hit&step=${encodeURIComponent(step)}&_t=${Date.now()}`, {
+          method: 'GET',
+          redirect: 'follow'
+        });
+        const data = await res.json();
+        if (data && typeof data.total !== 'undefined') {
+          const cloudStats = {
+            date: getTodayDateKey(),
+            today: Number(data.today) || 0,
+            total: Number(data.total) || 0
+          };
+          saveLocalUsageStats(cloudStats);
+          renderUsageStats(cloudStats, 'cloud');
+          return;
+        }
+      } catch (err) {
+        console.warn('雲端計數累加失敗：', err);
+      }
+      renderUsageStats(localStats, 'local');
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
+      fetchCloudUsageStats();
+
+      // Google Apps Script 網址設定面板切換與儲存
+      const gasInput = document.getElementById('gasWebhookInput');
+      if (gasInput) gasInput.value = getActiveGasUrl();
+
+      document.getElementById('btnToggleGasConfig')?.addEventListener('click', () => {
+        document.getElementById('gasConfigPanel')?.classList.toggle('hidden');
+      });
+
+      document.getElementById('btnSaveGasUrl')?.addEventListener('click', () => {
+        const val = (document.getElementById('gasWebhookInput')?.value || '').trim();
+        try {
+          if (val) {
+            localStorage.setItem(GAS_URL_STORAGE_KEY, val);
+          } else {
+            localStorage.removeItem(GAS_URL_STORAGE_KEY);
+          }
+        } catch (e) {}
+        fetchCloudUsageStats();
+        showToast(val ? '已儲存 Google Apps Script 網址並同步全站統計！' : '已清除網址並切回本機計數模式。');
+      });
       renderHoldingsTable();
       syncFormToMrk();
 
@@ -1965,8 +2187,14 @@
       document.getElementById('btnLoadDemoNlm').addEventListener('click', loadDemoNlmCip);
       document.getElementById('btnRunOcr').addEventListener('click', runOcrOnCurrentImage);
       document.getElementById('btnParseCipText').addEventListener('click', () => {
-        parseCipTextToForm(document.getElementById('rawOcrText').value);
-        showToast('已重新解析 CIP 文字至編目欄位！');
+        const rawVal = document.getElementById('rawOcrText').value;
+        if (rawVal && rawVal.trim()) {
+          parseCipTextToForm(rawVal);
+          incrementConversionCount(1);
+          showToast('已重新解析 CIP 文字至編目欄位！');
+        } else {
+          parseCipTextToForm(rawVal);
+        }
       });
 
       document.querySelectorAll('.bib-input').forEach(inp => {
@@ -2027,6 +2255,7 @@
         const bin = compileMrkToIso2709(mrkText);
         const title = cleanStr(document.getElementById('fTitle').value) || 'CIP_Record';
         downloadBlob(new Blob([bin], { type: 'application/marc' }), `${title}_MARC21.mrc`);
+        incrementConversionCount(1);
         showToast('已成功封裝並下載單筆標準 MARC 21 (.mrc) 檔案！');
       });
 
@@ -2067,6 +2296,7 @@
         }
         const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
         downloadBlob(new Blob([merged], { type: 'application/marc' }), `CIP_Batch_${dateStr}_${state.batchRecords.length}筆.mrc`);
+        incrementConversionCount(state.batchRecords.length);
         showToast(`已批次打包匯出 ${state.batchRecords.length} 筆書目為 .mrc 檔案！`);
       });
 
@@ -2075,6 +2305,7 @@
         const content = state.batchRecords.map(r => r.mrkText).join('\n\n');
         const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
         downloadBlob(new Blob([content], { type: 'text/plain;charset=utf-8' }), `CIP_Batch_${dateStr}.mrk`);
+        incrementConversionCount(state.batchRecords.length);
         showToast('已匯出全部 MRK 純文字檔！');
       });
     });
