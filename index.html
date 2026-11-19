@@ -215,6 +215,16 @@
             </button>
           </div>
 
+          <!-- 低解析度警告橫幅 -->
+          <div id="lowResWarningBox" class="hidden flex items-start gap-2.5 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-900 text-xs leading-relaxed">
+            <svg class="w-4 h-4 text-rose-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+            </svg>
+            <div class="flex-1">
+              <span class="font-bold">圖片解析度過低警告：</span><span id="lowResWarningText">偵測到圖片尺寸過小，可能導致中文字筆畫模糊與辨識錯誤，建議重新擷取或提高掃描解析度（建議 300 DPI）。</span>
+            </div>
+          </div>
+
           <!-- OCR 進度條 -->
           <div id="ocrProgressBox" class="hidden bg-brand-50 border border-brand-200 rounded-xl p-3 space-y-1.5">
             <div class="flex justify-between text-xs font-medium text-brand-800">
@@ -765,9 +775,20 @@
             crop = detectCipBoxBounds(gray, img.width, img.height, avgLum);
           }
 
+          const isLowRes = crop.w < 500 || crop.h < 180;
+          const MAX_WIDTH = 1800;
+          let scale = 1.0;
+          let downsampled = false;
+
+          if (crop.w > MAX_WIDTH) {
+            scale = MAX_WIDTH / crop.w;
+            downsampled = true;
+          } else if (crop.w >= 500 && crop.w < 1100) {
+            scale = 1.6;
+          }
+
           const canvas = document.getElementById('preprocessCanvas');
           const ctx = canvas.getContext('2d');
-          const scale = crop.w < 1100 ? 1.8 : 1.0;
           canvas.width = Math.round(crop.w * scale);
           canvas.height = Math.round(crop.h * scale);
 
@@ -799,7 +820,13 @@
 
           resolve({
             dataUrl: canvas.toDataURL('image/png'),
-            cropped: crop.found
+            cropped: crop.found,
+            isLowRes,
+            downsampled,
+            origW: crop.w,
+            origH: crop.h,
+            finalW: canvas.width,
+            finalH: canvas.height
           });
         };
         img.src = dataUrl;
@@ -818,7 +845,10 @@
       const percentText = document.getElementById('ocrPercentText');
       const progressBar = document.getElementById('ocrProgressBar');
       const btnRun = document.getElementById('btnRunOcr');
+      const lowResBox = document.getElementById('lowResWarningBox');
+      const lowResText = document.getElementById('lowResWarningText');
 
+      lowResBox.classList.add('hidden');
       progressBox.classList.remove('hidden');
       btnRun.disabled = true;
 
@@ -826,13 +856,18 @@
         let targetImage = state.currentImageDataUrl;
         const autoCrop = document.getElementById('chkCropBox').checked;
         const enhance = document.getElementById('chkPreprocess').checked;
-        if (autoCrop || enhance) {
-          statusText.textContent = autoCrop ? '正在偵測 CIP 外框並裁切框外雜訊...' : '正在進行影像去噪與對比度增強...';
-          const prep = await preprocessImage(targetImage, { autoCrop, enhance });
-          targetImage = prep.dataUrl;
-          if (prep.cropped) {
-            statusText.textContent = '已自動裁切 CIP 外框（忽略框外資訊），準備辨識...';
-          }
+        statusText.textContent = autoCrop ? '正在偵測 CIP 外框並檢查圖片解析度...' : '正在檢查圖片解析度與影像增強...';
+        const prep = await preprocessImage(targetImage, { autoCrop, enhance });
+        targetImage = prep.dataUrl;
+
+        if (prep.isLowRes) {
+          lowResText.textContent = `偵測到 CIP 區域解析度偏低（僅 ${prep.origW} × ${prep.origH} px，建議至少 500 px 寬），文字筆畫可能模糊導致錯字，建議重新擷取或以 300 DPI 掃描。`;
+          lowResBox.classList.remove('hidden');
+          showToast(`警告：圖片解析度偏低 (${prep.origW}×${prep.origH}px)，建議重新擷取較清晰圖片！`, 'error');
+        } else if (prep.downsampled) {
+          statusText.textContent = `高解析度圖片（${prep.origW}px）已自動等比最佳化為 ${prep.finalW}px 以加速辨識...`;
+        } else if (prep.cropped) {
+          statusText.textContent = '已自動裁切 CIP 外框（忽略框外資訊），準備辨識...';
         }
 
         const worker = await Tesseract.createWorker(['chi_tra', 'chi_sim', 'eng'], 1, {
@@ -1697,6 +1732,7 @@
     function setPreviewImageUrl(dataUrl) {
       state.currentImageDataUrl = dataUrl;
       state.manualCropRect = null;
+      document.getElementById('lowResWarningBox')?.classList.add('hidden');
       document.getElementById('manualCropOverlay').classList.add('hidden');
       document.getElementById('uploadPlaceholder').classList.add('hidden');
       document.getElementById('previewToolbar').classList.remove('hidden');
