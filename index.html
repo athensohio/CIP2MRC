@@ -150,8 +150,8 @@
 
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
         <!-- 左側：圖片上傳與預覽區 -->
-        <div class="lg:col-span-5 flex flex-col gap-3">
-          <div id="dropZone" class="border-2 border-dashed border-slate-300 hover:border-brand-500 bg-slate-50/70 hover:bg-brand-50/30 rounded-xl p-5 text-center cursor-pointer transition-all flex flex-col items-center justify-center min-h-[230px] relative overflow-hidden group">
+        <div class="lg:col-span-6 flex flex-col gap-3">
+          <div id="dropZone" class="border-2 border-dashed border-slate-300 hover:border-brand-500 bg-slate-50/70 hover:bg-brand-50/30 rounded-xl p-5 text-center cursor-pointer transition-all flex flex-col items-center justify-center min-h-[340px] relative overflow-hidden group">
             <input type="file" id="imageInput" accept="image/*" class="hidden" />
 
             <!-- 放大鏡懸浮工具按鈕群（有圖片時顯示） -->
@@ -181,7 +181,7 @@
             </div>
 
             <div id="previewWrapper" class="hidden relative inline-block select-none mt-5">
-              <img id="previewImage" src="" alt="CIP 預覽" draggable="false" class="max-h-[280px] w-auto object-contain rounded-lg shadow-xs block" />
+              <img id="previewImage" src="" alt="CIP 預覽" draggable="false" class="max-h-[420px] w-full object-contain rounded-lg shadow-xs block" />
               <!-- 局部跟隨放大鏡圓形鏡片 -->
               <div id="loupeLens" class="hidden pointer-events-none absolute w-40 h-40 rounded-full border-4 border-brand-500 shadow-2xl bg-no-repeat z-30"></div>
               <!-- 手動框選裁切遮罩 -->
@@ -228,7 +228,7 @@
         </div>
 
         <!-- 右側：OCR 辨識原始文字與結構解析觸發 -->
-        <div class="lg:col-span-7 flex flex-col gap-3">
+        <div class="lg:col-span-6 flex flex-col gap-3">
           <!-- OCR 人工校對提醒橫幅 -->
           <div class="flex items-start gap-2.5 p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs leading-relaxed">
             <svg class="w-4 h-4 text-amber-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
